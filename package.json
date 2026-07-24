@@ -3,10 +3,16 @@
   "version": "1.0.0",
   "main": "index.ts",
   "dependencies": {
+    "chess.js": "^1.4.0",
     "expo": "~57.0.7",
+    "expo-asset": "~57.0.7",
+    "expo-file-system": "~57.0.1",
+    "expo-splash-screen": "~57.0.4",
     "expo-status-bar": "~57.0.1",
     "react": "19.2.3",
-    "react-native": "0.86.0"
+    "react-native": "0.86.0",
+    "react-native-svg": "15.15.4",
+    "react-native-webview": "13.16.1"
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
@@ -14,9 +20,12 @@
   },
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
-    "web": "expo start --web"
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "web": "expo start --web",
+    "stockfish:sync": "node scripts/sync-stockfish-assets.js",
+    "openings:sync": "node scripts/sync-opening-book.js",
+    "postinstall": "node scripts/sync-stockfish-assets.js && node scripts/sync-opening-book.js"
   },
   "private": true
 }

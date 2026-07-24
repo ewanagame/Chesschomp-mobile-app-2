@@ -33,8 +33,18 @@ yarn-error.*
 # local env files
 .env*.local
 
-# typescript
-*.tsbuildinfo
+# Stockfish WASM bundle (generated — do not edit by hand)
+assets/stockfish/stockfish-18-lite-single.wasm
+assets/stockfish/stockfish.worker.bin
+assets/stockfish/manifest.json
+
+# ECO opening book (generated — do not edit by hand)
+assets/openings/eco-book.json
+
+# Legacy bridge HTML (superseded by lib/stockfishBridgeHtml.ts)
+assets/stockfish/engine.html
+assets/stockfish/engine.html.bak
+
 
 # generated native folders
 /ios
