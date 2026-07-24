@@ -10,6 +10,8 @@ type BadgeStyle = {
 
 const BADGE_STYLES: Record<MoveClassification, BadgeStyle> = {
   Brilliant: { backgroundColor: '#1baaaa', label: '!!', fontSize: 9 },
+  Great: { backgroundColor: '#5b6abf', label: '!', fontSize: 12 },
+  Miss: { backgroundColor: '#7b1f32', label: '×', fontSize: 12 },
   Best: { backgroundColor: '#6aaa3a', label: '★', fontSize: 11 },
   Excellent: { backgroundColor: '#96bc4b', label: '👍', fontSize: 9 },
   Good: { backgroundColor: '#7a9f5a', label: '✓', fontSize: 11 },

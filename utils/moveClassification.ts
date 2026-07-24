@@ -1,5 +1,7 @@
 export type MoveClassification =
   | 'Brilliant'
+  | 'Great'
+  | 'Miss'
   | 'Best'
   | 'Excellent'
   | 'Good'
@@ -17,47 +19,21 @@ export type ClassifyMoveInput = {
   wasBestMove: boolean;
   /** Whether the move is still within known opening theory. */
   isBookMove: boolean;
-  /**
-   * Placeholder for future sacrifice detection.
-   * When true and wasBestMove, classifies as Brilliant.
-   */
-  isSacrifice?: boolean;
+  /** Whether the move intentionally gives up material (see lib/materialEval.ts). */
+  isMaterialSacrifice?: boolean;
+  /** Win% gap between Stockfish's #1 and #2 lines before the move (mover perspective). */
+  bestSecondWinPercentGap?: number;
 };
+
+export const GREAT_WIN_PERCENT_GAP_THRESHOLD = 10;
+export const MISS_WIN_PERCENT_THRESHOLD = 90;
 
 /** Lichess-style centipawn → win probability (0–100, mover's perspective). */
 export function centipawnsToWinPercent(centipawns: number): number {
   return 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * centipawns)) - 1);
 }
 
-/**
- * Classify a single move from eval deltas and engine/book metadata.
- * Pure function — no I/O, no engine or board dependencies.
- */
-export function classifyMove(input: ClassifyMoveInput): MoveClassification {
-  const {
-    evalBeforeMoveCentipawns,
-    evalAfterMoveCentipawns,
-    wasBestMove,
-    isBookMove,
-    isSacrifice = false,
-  } = input;
-
-  if (isBookMove) {
-    return 'Book';
-  }
-
-  const winPercentBefore = centipawnsToWinPercent(evalBeforeMoveCentipawns);
-  const winPercentAfter = centipawnsToWinPercent(evalAfterMoveCentipawns);
-  const winPercentDrop = winPercentBefore - winPercentAfter;
-
-  if (wasBestMove && isSacrifice) {
-    return 'Brilliant';
-  }
-
-  if (wasBestMove && winPercentDrop <= 0) {
-    return 'Best';
-  }
-
+function evalDropClassification(winPercentDrop: number): MoveClassification {
   if (winPercentDrop <= 2) {
     return 'Excellent';
   }
@@ -71,6 +47,56 @@ export function classifyMove(input: ClassifyMoveInput): MoveClassification {
     return 'Mistake';
   }
   return 'Blunder';
+}
+
+/**
+ * Classify a single move from eval deltas and engine/book metadata.
+ * Pure function — no I/O, no engine or board dependencies.
+ *
+ * Priority: Brilliant > Great > Miss > Book > Best > eval-drop tiers.
+ */
+export function classifyMove(input: ClassifyMoveInput): MoveClassification {
+  const {
+    evalBeforeMoveCentipawns,
+    evalAfterMoveCentipawns,
+    wasBestMove,
+    isBookMove,
+    isMaterialSacrifice = false,
+    bestSecondWinPercentGap = 0,
+  } = input;
+
+  const winPercentBefore = centipawnsToWinPercent(evalBeforeMoveCentipawns);
+  const winPercentAfter = centipawnsToWinPercent(evalAfterMoveCentipawns);
+  const winPercentDrop = winPercentBefore - winPercentAfter;
+
+  if (
+    wasBestMove &&
+    isMaterialSacrifice &&
+    evalAfterMoveCentipawns >= 0
+  ) {
+    return 'Brilliant';
+  }
+
+  if (
+    wasBestMove &&
+    bestSecondWinPercentGap >= GREAT_WIN_PERCENT_GAP_THRESHOLD
+  ) {
+    return 'Great';
+  }
+
+  if (!wasBestMove && winPercentBefore >= MISS_WIN_PERCENT_THRESHOLD) {
+    return 'Miss';
+  }
+
+  if (isBookMove) {
+    return 'Book';
+  }
+
+  if (wasBestMove && winPercentDrop <= 0) {
+    return 'Best';
+  }
+
+  return evalDropClassification(winPercentDrop);
 }
 
 /** Temporary startup samples — remove once wired into the board. */
@@ -95,13 +121,32 @@ export function logMoveClassificationSamples(): void {
       },
     },
     {
-      label: 'Best move with sacrifice (Brilliant placeholder)',
+      label: 'Best move with material sacrifice',
       input: {
         evalBeforeMoveCentipawns: 80,
         evalAfterMoveCentipawns: 60,
         wasBestMove: true,
         isBookMove: false,
-        isSacrifice: true,
+        isMaterialSacrifice: true,
+      },
+    },
+    {
+      label: 'Only move in sharp position (Great)',
+      input: {
+        evalBeforeMoveCentipawns: 200,
+        evalAfterMoveCentipawns: 210,
+        wasBestMove: true,
+        isBookMove: false,
+        bestSecondWinPercentGap: 15,
+      },
+    },
+    {
+      label: 'Missed winning opportunity',
+      input: {
+        evalBeforeMoveCentipawns: 800,
+        evalAfterMoveCentipawns: 200,
+        wasBestMove: false,
+        isBookMove: false,
       },
     },
     {

@@ -9,6 +9,18 @@ export type PositionAnalysis = {
   bestMoveUci: string;
 };
 
+export type MultiPvLine = {
+  multipv: number;
+  evalCentipawns: number;
+  pv: string[];
+};
+
+export type MultiPvAnalysis = {
+  fen: string;
+  sideToMove: Color;
+  lines: MultiPvLine[];
+};
+
 export const ANALYSIS_MOVETIME_MS = 750;
 
 export function fenSideToMove(fen: string): Color {
@@ -45,4 +57,24 @@ export function evalCentipawnsForMover(analysis: PositionAnalysis, mover: Color)
 
 export function uciMovesMatch(playedUci: string, bestUci: string): boolean {
   return playedUci.toLowerCase() === bestUci.toLowerCase();
+}
+
+/** Win% gap between Stockfish's #1 and #2 lines from the mover's perspective. */
+export function bestSecondWinPercentGap(
+  analysis: MultiPvAnalysis,
+  mover: Color,
+  centipawnsToWinPercent: (cp: number) => number,
+): number {
+  const line1 = analysis.lines.find((line) => line.multipv === 1);
+  const line2 = analysis.lines.find((line) => line.multipv === 2);
+  if (!line1 || !line2) {
+    return 0;
+  }
+
+  const cp1 =
+    analysis.sideToMove === mover ? line1.evalCentipawns : -line1.evalCentipawns;
+  const cp2 =
+    analysis.sideToMove === mover ? line2.evalCentipawns : -line2.evalCentipawns;
+
+  return centipawnsToWinPercent(cp1) - centipawnsToWinPercent(cp2);
 }

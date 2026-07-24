@@ -1,5 +1,6 @@
 export type SearchInfo = {
   depth?: number;
+  multipv?: number;
   scoreCp?: number;
   scoreMate?: number;
   pv?: string[];
@@ -22,6 +23,8 @@ export function parseInfoLine(line: string): SearchInfo | null {
     const token = parts[i];
     if (token === 'depth') {
       info.depth = Number(parts[++i]);
+    } else if (token === 'multipv') {
+      info.multipv = Number(parts[++i]);
     } else if (token === 'score') {
       const kind = parts[++i];
       const value = Number(parts[++i]);

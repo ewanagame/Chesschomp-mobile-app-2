@@ -3,17 +3,24 @@ import { DEFAULT_POSITION, type Square } from 'chess.js';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { isAnalysisCompleteLine, parseBestMove, parseInfoLine } from '../lib/uciParse';
+import { isMaterialSacrifice } from '../lib/materialEval';
 import {
   ANALYSIS_MOVETIME_MS,
+  bestSecondWinPercentGap,
   evalCentipawnsForMover,
   fenSideToMove,
   moveToUci,
   scoreToCentipawns,
   uciMovesMatch,
+  type MultiPvAnalysis,
   type PositionAnalysis,
 } from '../lib/stockfishAnalysis';
 import { useStockfishEngine } from '../components/StockfishWebViewEngine';
-import { classifyMove, type MoveClassification } from '../utils/moveClassification';
+import {
+  centipawnsToWinPercent,
+  classifyMove,
+  type MoveClassification,
+} from '../utils/moveClassification';
 import { getOpeningBook } from '../lib/openingBook';
 
 export type ClassifiedMoveRecord = {
@@ -57,16 +64,12 @@ export function useMoveClassification() {
 
         const unsubscribe = addLineListener((line) => {
           const info = parseInfoLine(line);
-          if (info) {
+          if (info && (info.multipv == null || info.multipv === 1)) {
             latestInfo = info;
           }
 
           if (isAnalysisCompleteLine(line)) {
             const best = parseBestMove(line);
-            const isTerminal = line.includes('(none)');
-            // #region agent log
-            fetch('http://127.0.0.1:7379/ingest/7f09bb4c-e915-4530-8fd7-f1396c87e72c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'687eca'},body:JSON.stringify({sessionId:'687eca',runId:'mate-fix',hypothesisId:'H1',location:'useMoveClassification.ts:runAnalysis',message:'analysis complete',data:{fen,isTerminal,bestMove:best?.uci??null,scoreMate:latestInfo?.scoreMate??null,scoreCp:latestInfo?.scoreCp??null},timestamp:Date.now()})}).catch(()=>{});
-            // #endregion
             cleanup();
             resolve({
               fen,
@@ -83,6 +86,56 @@ export function useMoveClassification() {
         }
 
         try {
+          sendCommand('setoption name MultiPV value 1');
+          sendCommand(`position fen ${fen}`);
+          sendCommand(`go movetime ${ANALYSIS_MOVETIME_MS}`);
+        } catch (error) {
+          cleanup();
+          reject(error);
+        }
+      }),
+    [addLineListener, sendCommand],
+  );
+
+  const runMultiPvAnalysis = useCallback(
+    (fen: string, multipv = 2): Promise<MultiPvAnalysis> =>
+      new Promise((resolve, reject) => {
+        const latestByMultipv = new Map<number, ReturnType<typeof parseInfoLine>>();
+        const timeoutId = setTimeout(() => {
+          cleanup();
+          reject(new Error(`Stockfish multipv analysis timed out for fen: ${fen}`));
+        }, ANALYSIS_MOVETIME_MS + 5_000);
+
+        const unsubscribe = addLineListener((line) => {
+          const info = parseInfoLine(line);
+          if (info?.multipv != null) {
+            latestByMultipv.set(info.multipv, info);
+          }
+
+          if (isAnalysisCompleteLine(line)) {
+            cleanup();
+            sendCommand('setoption name MultiPV value 1');
+            resolve({
+              fen,
+              sideToMove: fenSideToMove(fen),
+              lines: [...latestByMultipv.entries()]
+                .sort(([a], [b]) => a - b)
+                .map(([index, lineInfo]) => ({
+                  multipv: index,
+                  evalCentipawns: scoreToCentipawns(lineInfo),
+                  pv: lineInfo?.pv ?? [],
+                })),
+            });
+          }
+        });
+
+        function cleanup() {
+          clearTimeout(timeoutId);
+          unsubscribe();
+        }
+
+        try {
+          sendCommand(`setoption name MultiPV value ${multipv}`);
           sendCommand(`position fen ${fen}`);
           sendCommand(`go movetime ${ANALYSIS_MOVETIME_MS}`);
         } catch (error) {
@@ -107,9 +160,6 @@ export function useMoveClassification() {
           } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             console.warn('[Move Classification] analysis task failed:', message);
-            // #region agent log
-            fetch('http://127.0.0.1:7379/ingest/7f09bb4c-e915-4530-8fd7-f1396c87e72c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'687eca'},body:JSON.stringify({sessionId:'687eca',runId:'mate-fix',hypothesisId:'H2',location:'useMoveClassification.ts:drainQueue',message:'task failed',data:{error:message},timestamp:Date.now()})}).catch(()=>{});
-            // #endregion
           }
         }
       }
@@ -193,11 +243,28 @@ export function useMoveClassification() {
           }
         }
 
+        const materialSacrifice = isMaterialSacrifice(fenBefore, fenAfter, move, mover);
+        const brilliantCandidate =
+          wasBestMove && materialSacrifice && evalAfter >= 0;
+
+        let winPercentGap = 0;
+        if (wasBestMove && !brilliantCandidate) {
+          try {
+            const multiPv = await runMultiPvAnalysis(fenBefore, 2);
+            winPercentGap = bestSecondWinPercentGap(multiPv, mover, centipawnsToWinPercent);
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            console.warn('[Move Classification] multipv analysis failed:', message);
+          }
+        }
+
         const classification = classifyMove({
           evalBeforeMoveCentipawns: evalBefore,
           evalAfterMoveCentipawns: evalAfter,
           wasBestMove,
           isBookMove,
+          isMaterialSacrifice: materialSacrifice,
+          bestSecondWinPercentGap: winPercentGap,
         });
 
         const record: ClassifiedMoveRecord = {
@@ -219,12 +286,20 @@ export function useMoveClassification() {
           classification,
         });
 
+        const tags = [
+          isBookMove ? 'book' : null,
+          materialSacrifice ? 'sacrifice' : null,
+          winPercentGap > 0 ? `gap ${winPercentGap.toFixed(1)}%` : null,
+        ]
+          .filter(Boolean)
+          .join(', ');
+
         console.log(
-          `[Move Classification] ${record.san} (${record.move}): ${record.classification} (before: ${evalBefore}cp, after: ${evalAfter}cp, best: ${wasBestMove ? 'yes' : 'no'}${isBookMove ? ', book' : ''})`,
+          `[Move Classification] ${record.san} (${record.move}): ${record.classification} (before: ${evalBefore}cp, after: ${evalAfter}cp, best: ${wasBestMove ? 'yes' : 'no'}${tags ? `, ${tags}` : ''})`,
         );
       });
     },
-    [analyzeAndCache, enqueue],
+    [analyzeAndCache, enqueue, runMultiPvAnalysis],
   );
 
   return {
