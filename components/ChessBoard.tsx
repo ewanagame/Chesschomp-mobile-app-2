@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { ChessPiece } from './chessPieces';
+import EvalBar from './EvalBar';
 import MoveClassificationBadge from './MoveClassificationBadge';
 import PromotionPicker from './PromotionPicker';
 import { useMoveClassification } from '../hooks/useMoveClassification';
@@ -126,7 +127,8 @@ export default function ChessBoard() {
   const [pendingPromotion, setPendingPromotion] = useState<PendingPromotion | null>(null);
   dragStateRef.current = dragState;
 
-  const { onMovePlayed, resetClassification, latestClassification } = useMoveClassification();
+  const { onMovePlayed, resetClassification, latestClassification, positionEval } =
+    useMoveClassification();
 
   const game = gameRef.current;
   const board = game.board();
@@ -433,6 +435,7 @@ export default function ChessBoard() {
     <View style={styles.screen}>
       <View ref={wrapperRef} style={styles.wrapper} onLayout={measureBoard}>
       <View style={styles.boardRow}>
+        <EvalBar height={boardSize + 2} eval={positionEval} />
         <View style={styles.boardColumn}>
           <View
             style={[

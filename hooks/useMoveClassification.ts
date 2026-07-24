@@ -9,6 +9,7 @@ import {
   bestSecondWinPercentGap,
   evalCentipawnsForMover,
   fenSideToMove,
+  liveEvalFromAnalysis,
   moveToUci,
   scoreToCentipawns,
   uciMovesMatch,
@@ -22,6 +23,7 @@ import {
   type MoveClassification,
 } from '../utils/moveClassification';
 import { getOpeningBook } from '../lib/openingBook';
+import { NEUTRAL_POSITION_EVAL, type LivePositionEval } from '../lib/liveEval';
 
 export type ClassifiedMoveRecord = {
   move: string;
@@ -50,6 +52,7 @@ export function useMoveClassification() {
   const [latestClassification, setLatestClassification] = useState<LatestMoveClassification | null>(
     null,
   );
+  const [positionEval, setPositionEval] = useState<LivePositionEval>(NEUTRAL_POSITION_EVAL);
   const gameSanMovesRef = useRef<string[]>([]);
   const hasLeftBookRef = useRef(false);
 
@@ -76,6 +79,8 @@ export function useMoveClassification() {
               sideToMove: fenSideToMove(fen),
               evalCentipawns: scoreToCentipawns(latestInfo),
               bestMoveUci: best?.uci ?? '',
+              scoreCp: latestInfo?.scoreCp ?? null,
+              scoreMate: latestInfo?.scoreMate ?? null,
             });
           }
         });
@@ -192,6 +197,7 @@ export function useMoveClassification() {
     gameSanMovesRef.current = [];
     hasLeftBookRef.current = false;
     setLatestClassification(null);
+    setPositionEval(NEUTRAL_POSITION_EVAL);
     if (isReady) {
       enqueue(async () => {
         await analyzeAndCache(DEFAULT_POSITION);
@@ -232,6 +238,13 @@ export function useMoveClassification() {
         const fenAfter = move.after;
         const afterAnalysis = await analyzeAndCache(fenAfter);
         const evalAfter = evalCentipawnsForMover(afterAnalysis, mover);
+
+        const liveEval = liveEvalFromAnalysis(afterAnalysis);
+        setPositionEval({
+          isNeutral: false,
+          centipawnsWhite: liveEval.centipawnsWhite,
+          mateInWhite: liveEval.mateInWhite,
+        });
 
         gameSanMovesRef.current.push(move.san);
         const openingBook = getOpeningBook();
@@ -307,5 +320,6 @@ export function useMoveClassification() {
     resetClassification,
     classifiedMovesRef,
     latestClassification,
+    positionEval,
   };
 }

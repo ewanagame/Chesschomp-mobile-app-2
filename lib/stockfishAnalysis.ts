@@ -7,6 +7,8 @@ export type PositionAnalysis = {
   sideToMove: Color;
   evalCentipawns: number;
   bestMoveUci: string;
+  scoreCp?: number | null;
+  scoreMate?: number | null;
 };
 
 export type MultiPvLine = {
@@ -57,6 +59,29 @@ export function evalCentipawnsForMover(analysis: PositionAnalysis, mover: Color)
 
 export function uciMovesMatch(playedUci: string, bestUci: string): boolean {
   return playedUci.toLowerCase() === bestUci.toLowerCase();
+}
+
+/** Convert cached Stockfish analysis to a White-perspective eval for UI display. */
+export function liveEvalFromAnalysis(analysis: PositionAnalysis): {
+  centipawnsWhite: number;
+  mateInWhite: number | null;
+} {
+  const flip = analysis.sideToMove === 'w' ? 1 : -1;
+
+  if (analysis.scoreMate != null) {
+    return {
+      centipawnsWhite: 0,
+      mateInWhite: analysis.scoreMate * flip,
+    };
+  }
+
+  const centipawns =
+    analysis.scoreCp != null ? analysis.scoreCp * flip : analysis.evalCentipawns * flip;
+
+  return {
+    centipawnsWhite: centipawns,
+    mateInWhite: null,
+  };
 }
 
 /** Win% gap between Stockfish's #1 and #2 lines from the mover's perspective. */
