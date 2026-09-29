@@ -339,6 +339,24 @@ export function buildStockfishBridgeHtml(): string {
             return;
           }
 
+          if (message.type === 'destroy') {
+            log('destroy requested from RN');
+            pendingCommands.length = 0;
+            clearUciTimeout();
+            if (mainEngine && mainEngine.processCommand) {
+              try {
+                mainEngine.processCommand('stop');
+              } catch (error) {
+                log('stop on destroy failed', { message: error.message || String(error) });
+              }
+            }
+            mainEngine = null;
+            booted = false;
+            uciReady = false;
+            post({ type: 'destroyed' });
+            return;
+          }
+
           post({ type: 'error', message: 'Unknown bridge message type' });
         }
 

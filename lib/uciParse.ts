@@ -1,3 +1,5 @@
+import type { PieceSymbol, Square } from 'chess.js';
+
 export type SearchInfo = {
   depth?: number;
   multipv?: number;
@@ -10,6 +12,23 @@ export type BestMove = {
   uci: string;
   ponder?: string;
 };
+
+/** Parse a UCI move string (e.g. e2e4, e7e8q) into from/to squares. */
+export function parseUciMove(uci: string | null | undefined): {
+  from: Square;
+  to: Square;
+  promotion?: PieceSymbol;
+} | null {
+  if (!uci || uci.length < 4 || uci === '(none)') {
+    return null;
+  }
+
+  return {
+    from: uci.slice(0, 2) as Square,
+    to: uci.slice(2, 4) as Square,
+    promotion: uci.length > 4 ? (uci[4] as PieceSymbol) : undefined,
+  };
+}
 
 export function parseInfoLine(line: string): SearchInfo | null {
   if (!line.startsWith('info ')) {

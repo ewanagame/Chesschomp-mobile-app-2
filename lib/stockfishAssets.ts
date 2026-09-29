@@ -11,9 +11,6 @@ const WORKER_WASM = 'stockfish-18-lite-single.wasm';
 let preparedDir: string | null = null;
 
 export async function prepareStockfishEngineDir(): Promise<string> {
-  // #region agent log
-  fetch('http://127.0.0.1:7379/ingest/7f09bb4c-e915-4530-8fd7-f1396c87e72c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'687eca'},body:JSON.stringify({sessionId:'687eca',runId:'wasm-binary',hypothesisId:'H1',location:'stockfishAssets.ts:prepare:entry',message:'prepareStockfishEngineDir called',data:{preparedDir},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
 
   if (!FileSystem.cacheDirectory) {
     throw new Error('FileSystem cache directory is unavailable.');
@@ -52,10 +49,6 @@ export async function prepareStockfishEngineDir(): Promise<string> {
 
   preparedDir = engineDir;
 
-  // #region agent log
-  fetch('http://127.0.0.1:7379/ingest/7f09bb4c-e915-4530-8fd7-f1396c87e72c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'687eca'},body:JSON.stringify({sessionId:'687eca',runId:'wasm-binary',hypothesisId:'H1',location:'stockfishAssets.ts:prepare:success',message:'Stockfish assets ready',data:{engineDir,wasmSize,jsSize},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
-
   return engineDir;
 }
 
@@ -63,10 +56,6 @@ export async function loadWasmBase64(engineDir: string): Promise<string> {
   const wasmBase64 = await FileSystem.readAsStringAsync(`${engineDir}${WORKER_WASM}`, {
     encoding: FileSystem.EncodingType.Base64,
   });
-
-  // #region agent log
-  fetch('http://127.0.0.1:7379/ingest/7f09bb4c-e915-4530-8fd7-f1396c87e72c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'687eca'},body:JSON.stringify({sessionId:'687eca',runId:'wasm-binary',hypothesisId:'H1',location:'stockfishAssets.ts:loadWasmBase64',message:'wasm base64 loaded for postMessage',data:{wasmBase64Length:wasmBase64.length},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
 
   return wasmBase64;
 }
@@ -82,10 +71,6 @@ export async function buildStockfishWebViewSource(
     bridgePath,
     bridgeHtmlLength: bridgeHtml.length,
   });
-
-  // #region agent log
-  fetch('http://127.0.0.1:7379/ingest/7f09bb4c-e915-4530-8fd7-f1396c87e72c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'687eca'},body:JSON.stringify({sessionId:'687eca',runId:'wasm-binary',hypothesisId:'H4',location:'stockfishAssets.ts:buildSource',message:'bridge html written to cache',data:{bridgePath,bridgeHtmlLength:bridgeHtml.length},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
 
   return { uri: bridgePath, baseUrl: engineDir, bridgeHtmlLength: bridgeHtml.length };
 }

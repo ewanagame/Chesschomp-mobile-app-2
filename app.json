@@ -33,7 +33,8 @@
           "imageWidth": 390
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      "expo-audio"
     ]
   }
 }

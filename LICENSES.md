@@ -29,4 +29,4 @@ Move classification uses a bundled opening database derived from the public **[l
 
 ## In-app credits
 
-A dedicated in-app **Licenses** / credits screen is planned; this file documents attribution requirements in the meantime.
+Open **Licenses** from the Home screen (top-right) for the same attribution in the app.

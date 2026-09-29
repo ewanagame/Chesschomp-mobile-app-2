@@ -4,6 +4,8 @@ import { ChessPiece } from './chessPieces';
 
 const PROMOTION_PIECES: PieceSymbol[] = ['q', 'r', 'n', 'b'];
 
+export const PROMOTION_PICKER_SCALE = 1.35;
+
 type PromotionPickerProps = {
   color: Color;
   squareSize: number;
@@ -19,7 +21,8 @@ export default function PromotionPicker({
   top,
   onSelect,
 }: PromotionPickerProps) {
-  const pieceSize = squareSize * 0.88;
+  const optionSize = squareSize * PROMOTION_PICKER_SCALE;
+  const pieceSize = optionSize * 0.88;
 
   return (
     <View
@@ -28,15 +31,15 @@ export default function PromotionPicker({
         {
           left,
           top,
-          width: squareSize,
-          height: squareSize * PROMOTION_PIECES.length,
+          width: optionSize,
+          height: optionSize * PROMOTION_PIECES.length,
         },
       ]}
     >
       {PROMOTION_PIECES.map((type) => (
         <Pressable
           key={type}
-          style={[styles.option, { width: squareSize, height: squareSize }]}
+          style={[styles.option, { width: optionSize, height: optionSize }]}
           onPress={() => onSelect(type)}
         >
           <ChessPiece color={color} type={type} size={pieceSize} />

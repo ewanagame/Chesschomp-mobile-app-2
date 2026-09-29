@@ -1,20 +1,28 @@
-import ChessBoard from './components/ChessBoard';
-import { StockfishEngineProvider } from './components/StockfishWebViewEngine';
-import WarmRadialBackground from './components/WarmRadialBackground';
+import AppNavigator from './navigation/AppNavigator';
+import { AppPreferencesProvider } from './contexts/AppPreferencesContext';
+import { ChessSoundProvider, preloadChessSounds } from './contexts/ChessSoundContext';
+import { ThemeProvider, useTheme } from './contexts/ThemeContext';
+import { loadSoundEnabled } from './lib/soundPreferences';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
 
 SplashScreen.preventAutoHideAsync();
 
+function ThemedStatusBar() {
+  const theme = useTheme();
+  return <StatusBar style={theme.statusBarStyle} />;
+}
+
 export default function App() {
   const [isReady, setIsReady] = useState(false);
+  const [initialSoundEnabled, setInitialSoundEnabled] = useState(true);
 
   useEffect(() => {
     async function prepare() {
       try {
-        // Add any async resource loading here when needed.
+        const [soundEnabled] = await Promise.all([loadSoundEnabled(), preloadChessSounds()]);
+        setInitialSoundEnabled(soundEnabled);
       } catch (e) {
         console.warn(e);
       } finally {
@@ -36,19 +44,13 @@ export default function App() {
   }
 
   return (
-    <StockfishEngineProvider>
-      <View style={styles.container}>
-        <WarmRadialBackground />
-        <ChessBoard />
-        <StatusBar style="light" />
-      </View>
-    </StockfishEngineProvider>
+    <AppPreferencesProvider>
+      <ThemeProvider>
+        <ChessSoundProvider initialSoundEnabled={initialSoundEnabled}>
+          <AppNavigator />
+          <ThemedStatusBar />
+        </ChessSoundProvider>
+      </ThemeProvider>
+    </AppPreferencesProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000000',
-  },
-});
