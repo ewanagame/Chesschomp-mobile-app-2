@@ -2,13 +2,13 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import type { MoveClassification } from '../utils/moveClassification';
 
-type BadgeStyle = {
+export type ClassificationBadgeStyle = {
   backgroundColor: string;
   label: string;
   fontSize: number;
 };
 
-const BADGE_STYLES: Record<MoveClassification, BadgeStyle> = {
+const BADGE_STYLES: Record<MoveClassification, ClassificationBadgeStyle> = {
   Brilliant: { backgroundColor: '#1baaaa', label: '!!', fontSize: 9 },
   Great: { backgroundColor: '#5b6abf', label: '!', fontSize: 12 },
   Miss: { backgroundColor: '#7b1f32', label: '×', fontSize: 12 },
@@ -16,10 +16,15 @@ const BADGE_STYLES: Record<MoveClassification, BadgeStyle> = {
   Excellent: { backgroundColor: '#96bc4b', label: '👍', fontSize: 9 },
   Good: { backgroundColor: '#7a9f5a', label: '✓', fontSize: 11 },
   Book: { backgroundColor: '#b58863', label: '📖', fontSize: 8 },
+  Forced: { backgroundColor: '#8fa882', label: '→', fontSize: 12 },
+  MissedWin: { backgroundColor: '#d4a017', label: '−', fontSize: 14 },
   Inaccuracy: { backgroundColor: '#e0b040', label: '?!', fontSize: 8 },
   Mistake: { backgroundColor: '#e6912c', label: '?', fontSize: 12 },
   Blunder: { backgroundColor: '#ca3431', label: '??', fontSize: 8 },
 };
+
+export const CLASSIFICATION_BADGE_STYLES: Record<MoveClassification, ClassificationBadgeStyle> =
+  BADGE_STYLES;
 
 type MoveClassificationBadgeProps = {
   classification: MoveClassification;

@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
 
+import { type BoardOrientation } from '../lib/boardOrientation';
+import { formatEvalLabel } from '../lib/evalBarLabel';
 import { type LivePositionEval } from '../lib/liveEval';
 import { centipawnsToWinPercent } from '../utils/moveClassification';
 
@@ -13,6 +15,8 @@ const MAX_FILL_PERCENT = 98;
 type EvalBarProps = {
   height: number;
   eval: LivePositionEval;
+  /** Align white's edge with white's side of the board (bottom when playing as White). */
+  boardOrientation?: BoardOrientation;
 };
 
 function whiteFillPercent(evalState: LivePositionEval): number {
@@ -32,32 +36,14 @@ function whiteFillPercent(evalState: LivePositionEval): number {
   return Math.max(MIN_FILL_PERCENT, Math.min(MAX_FILL_PERCENT, winPercent));
 }
 
-export function formatEvalLabel(evalState: LivePositionEval): string {
-  if (evalState.isNeutral) {
-    return '0.0';
-  }
-
-  if (evalState.mateInWhite != null) {
-    if (evalState.mateInWhite > 0) {
-      return `M${evalState.mateInWhite}`;
-    }
-    return `-M${Math.abs(evalState.mateInWhite)}`;
-  }
-
-  const pawns = evalState.centipawnsWhite / 100;
-  const magnitude = Math.abs(pawns).toFixed(1);
-  if (pawns > 0) {
-    return `+${magnitude}`;
-  }
-  if (pawns < 0) {
-    return `-${magnitude}`;
-  }
-  return '0.0';
-}
-
-export default function EvalBar({ height, eval: evalState }: EvalBarProps) {
+export default function EvalBar({
+  height,
+  eval: evalState,
+  boardOrientation = 'white',
+}: EvalBarProps) {
   const targetFill = whiteFillPercent(evalState);
   const fillAnim = useRef(new Animated.Value(targetFill)).current;
+  const whiteAtBottom = boardOrientation === 'white';
 
   useEffect(() => {
     Animated.timing(fillAnim, {
@@ -68,7 +54,8 @@ export default function EvalBar({ height, eval: evalState }: EvalBarProps) {
   }, [fillAnim, targetFill]);
 
   const label = formatEvalLabel(evalState);
-  const labelOnWhiteSide = targetFill >= 50;
+  const whiteIsWinning = targetFill >= 50;
+  const labelOnWhiteSide = whiteIsWinning;
   const whiteHeight = fillAnim.interpolate({
     inputRange: [0, 100],
     outputRange: [0, height],
@@ -78,21 +65,33 @@ export default function EvalBar({ height, eval: evalState }: EvalBarProps) {
     outputRange: [height, 0],
   });
 
+  const labelPositionStyle =
+    labelOnWhiteSide === whiteAtBottom ? styles.labelOnBottom : styles.labelOnTop;
+  const labelTextStyle = labelOnWhiteSide ? styles.labelOnWhiteBg : styles.labelOnBlackBg;
+
   return (
     <View style={[styles.container, { height, width: BAR_WIDTH }]}>
-      <View style={[styles.track, { height }]}>
+      <View
+        style={[
+          styles.track,
+          { height },
+          whiteAtBottom ? styles.trackWhiteAtBottom : styles.trackWhiteAtTop,
+        ]}
+      >
         <Animated.View style={[styles.whiteSection, { height: whiteHeight }]} />
         <Animated.View style={[styles.blackSection, { height: blackHeight }]} />
       </View>
 
-      <View
-        pointerEvents="none"
-        style={[
-          styles.labelHost,
-          labelOnWhiteSide ? styles.labelOnWhite : styles.labelOnBlack,
-        ]}
-      >
-        <Text style={styles.labelText}>{label}</Text>
+      <View pointerEvents="none" style={[styles.labelHost, labelPositionStyle]}>
+        <Text
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.75}
+          allowFontScaling={false}
+          style={[styles.labelTextBase, labelTextStyle]}
+        >
+          {label}
+        </Text>
       </View>
     </View>
   );
@@ -100,8 +99,8 @@ export default function EvalBar({ height, eval: evalState }: EvalBarProps) {
 
 const styles = StyleSheet.create({
   container: {
-    marginRight: 6,
     position: 'relative',
+    overflow: 'visible',
   },
   track: {
     borderRadius: 4,
@@ -109,6 +108,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.18)',
     flexDirection: 'column',
+  },
+  trackWhiteAtTop: {
+    flexDirection: 'column',
+  },
+  trackWhiteAtBottom: {
+    flexDirection: 'column-reverse',
   },
   whiteSection: {
     backgroundColor: '#f0f0f0',
@@ -120,23 +125,33 @@ const styles = StyleSheet.create({
   },
   labelHost: {
     position: 'absolute',
-    left: 0,
-    right: 0,
+    left: -6,
+    right: -6,
     alignItems: 'center',
-    paddingHorizontal: 1,
+    overflow: 'visible',
   },
-  labelOnWhite: {
+  labelOnTop: {
     top: 6,
   },
-  labelOnBlack: {
+  labelOnBottom: {
     bottom: 6,
   },
-  labelText: {
-    color: '#ffffff',
-    fontSize: 9,
+  labelTextBase: {
+    fontSize: 10,
     fontWeight: '800',
     textAlign: 'center',
-    textShadowColor: 'rgba(0, 0, 0, 0.85)',
+    minWidth: 36,
+    flexShrink: 0,
+  },
+  labelOnWhiteBg: {
+    color: '#1a1a1a',
+    textShadowColor: 'rgba(255, 255, 255, 0.75)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 2,
+  },
+  labelOnBlackBg: {
+    color: '#f5f5f5',
+    textShadowColor: 'rgba(0, 0, 0, 0.9)',
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 3,
   },
