@@ -1,15 +1,8 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useMemo, useState } from 'react';
-import {
-  Image,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  useWindowDimensions,
-  View,
-} from 'react-native';
+import { SafeAreaView, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
+import AppImage from '../components/AppImage';
 import ScreenBackButton, { SCREEN_BACK_BUTTON_HEIGHT } from '../components/ScreenBackButton';
 import WarmRadialBackground from '../components/WarmRadialBackground';
 import { IconButton, PressableScale } from '../components/ui';
@@ -60,7 +53,7 @@ function BotCard({ bot, size, selected, onPress, styles, offsetStyle }: BotCardP
     >
       <View style={styles.botCardClip}>
         <View style={[styles.botImageFrame, { height: size }]}>
-          <Image source={getBotImageSource(bot, theme.scheme)} style={styles.botImage} resizeMode="cover" />
+          <AppImage source={getBotImageSource(bot, theme.scheme)} style={styles.botImage} resizeMode="cover" />
           <View
             style={styles.eloBadge}
             accessibilityElementsHidden

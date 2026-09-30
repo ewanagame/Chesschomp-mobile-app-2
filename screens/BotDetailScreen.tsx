@@ -1,7 +1,6 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useMemo } from 'react';
 import {
-  Image,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -10,6 +9,7 @@ import {
   View,
 } from 'react-native';
 
+import AppImage from '../components/AppImage';
 import ScreenBackButton, { SCREEN_BACK_BUTTON_HEIGHT } from '../components/ScreenBackButton';
 import ScreenHomeButton from '../components/ScreenHomeButton';
 import WarmRadialBackground from '../components/WarmRadialBackground';
@@ -53,7 +53,7 @@ export default function BotDetailScreen({ navigation, route }: BotDetailScreenPr
           showsVerticalScrollIndicator={false}
         >
           <View style={[styles.imageFrame, { width: imageSize, height: imageSize }]}>
-            <Image source={getBotImageSource(bot, theme.scheme)} style={styles.image} resizeMode="cover" />
+            <AppImage source={getBotImageSource(bot, theme.scheme)} style={styles.image} resizeMode="cover" />
           </View>
 
           <Text style={styles.name}>{bot.name}</Text>

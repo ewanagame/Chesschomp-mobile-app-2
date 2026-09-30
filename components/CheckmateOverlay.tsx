@@ -1,8 +1,9 @@
 import type { Square } from 'chess.js';
 import type { Color } from 'chess.js';
 import { useEffect, useRef } from 'react';
-import { Animated, Easing, Image, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
 
+import AppImage from './AppImage';
 import { CHECKMATE_ASSETS } from '../lib/checkmateAssets';
 import { getSquareCenter } from '../lib/boardGeometry';
 import { type BoardOrientation } from '../lib/boardOrientation';
@@ -93,7 +94,7 @@ export default function CheckmateOverlay({
             },
           ]}
         >
-          <Image source={CHECKMATE_ASSETS.sword} style={styles.swordImage} resizeMode="contain" />
+          <AppImage source={CHECKMATE_ASSETS.sword} style={styles.swordImage} resizeMode="contain" />
         </View>
 
         <View
@@ -107,7 +108,7 @@ export default function CheckmateOverlay({
             },
           ]}
         >
-          <Image source={CHECKMATE_ASSETS.crown} style={styles.crownImage} resizeMode="contain" />
+          <AppImage source={CHECKMATE_ASSETS.crown} style={styles.crownImage} resizeMode="contain" />
         </View>
 
         <View

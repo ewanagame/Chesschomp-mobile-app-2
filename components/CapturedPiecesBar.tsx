@@ -1,7 +1,8 @@
 import type { Color, PieceSymbol } from 'chess.js';
 import { useMemo } from 'react';
-import { Image, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
+import { StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
 
+import AppImage from './AppImage';
 import { ChessPiece } from './chessPieces';
 import { useTheme } from '../contexts/ThemeContext';
 import {
@@ -49,7 +50,7 @@ export default function CapturedPiecesBar({
 
   return (
     <View style={[styles.row, { width, height: CAPTURE_ROW_HEIGHT }]}>
-      <Image
+      <AppImage
         source={portraitSource}
         style={styles.portrait}
         resizeMode="cover"

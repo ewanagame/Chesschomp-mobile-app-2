@@ -1,7 +1,8 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useMemo } from 'react';
-import { Image, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import AppImage from '../components/AppImage';
 import ScreenBackButton, { SCREEN_BACK_BUTTON_HEIGHT } from '../components/ScreenBackButton';
 import WarmRadialBackground from '../components/WarmRadialBackground';
 import { Button, Card, SectionHeader } from '../components/ui';
@@ -45,7 +46,7 @@ export default function FreeBoardModesScreen({ navigation }: FreeBoardModesScree
               <Text style={styles.featureTagline}>{PLAY_TOGETHER_TAGLINE}</Text>
             </View>
             <View style={styles.playTogetherFrame}>
-              <Image
+              <AppImage
                 source={playTogetherImageSource(theme.scheme)}
                 style={styles.playTogetherImage}
                 resizeMode="contain"

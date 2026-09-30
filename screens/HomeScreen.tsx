@@ -2,7 +2,6 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useMemo, useState } from 'react';
 import {
-  Image,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -17,9 +16,11 @@ import NameGameModal from '../components/NameGameModal';
 import PlayerPieceModal from '../components/PlayerPieceModal';
 import WarmRadialBackground from '../components/WarmRadialBackground';
 import { Card, Divider, IconButton, PressableScale } from '../components/ui';
+import AppImage from '../components/AppImage';
 import { useAppPreferences } from '../contexts/AppPreferencesContext';
 import { useChessSound } from '../contexts/ChessSoundContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { HOME_MASCOT_SOURCE } from '../lib/preloadImages';
 import { loadActiveGame, isFinishedActiveGame } from '../lib/activeGame';
 import type { ActiveGameSnapshot } from '../lib/activeGame';
 import { limitPlayerNameWords } from '../lib/playerName';
@@ -46,8 +47,8 @@ function MascotMark({ size, radius }: { size: number; radius: number }) {
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
     >
-      <Image
-        source={require('../assets/splash.png')}
+      <AppImage
+        source={HOME_MASCOT_SOURCE}
         style={{
           width: imageWidth,
           height: size,
