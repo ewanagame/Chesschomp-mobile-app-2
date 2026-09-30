@@ -1,5 +1,11 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { DarkTheme, DefaultTheme, NavigationContainer } from '@react-navigation/native';
+import {
+  DarkTheme,
+  DefaultTheme,
+  NavigationContainer,
+  type NavigationState,
+  type PartialState,
+} from '@react-navigation/native';
 import { useMemo, type ComponentType } from 'react';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
@@ -46,7 +52,11 @@ const EnteredBotDetail = withScreenEntrance(BotDetailScreen);
 const EnteredSavedGames = withScreenEntrance(SavedGamesScreen);
 const EnteredGameReviewSetup = withScreenEntrance(GameReviewSetupScreen);
 
-export default function AppNavigator() {
+type AppNavigatorProps = {
+  initialNavigationState?: PartialState<NavigationState>;
+};
+
+export default function AppNavigator({ initialNavigationState }: AppNavigatorProps) {
   const theme = useTheme();
 
   const navigationTheme = useMemo(
@@ -65,7 +75,7 @@ export default function AppNavigator() {
   );
 
   return (
-    <NavigationContainer theme={navigationTheme}>
+    <NavigationContainer theme={navigationTheme} initialState={initialNavigationState}>
       <Stack.Navigator
         initialRouteName="Home"
         screenOptions={{

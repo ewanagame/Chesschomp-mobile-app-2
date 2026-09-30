@@ -34,6 +34,7 @@ import { getOpeningBook } from '../lib/openingBook';
 import { NEUTRAL_POSITION_EVAL, type LivePositionEval } from '../lib/liveEval';
 import { getTerminalPositionAnalysis } from '../lib/terminalPosition';
 import type { EasterEggCandidate } from '../lib/easterEggMovePreview';
+import { alignClassifiedMovesToSans } from '../lib/classifiedMoves';
 import { movesThroughIndex, toFen, type GameSession } from '../lib/gameHistory';
 
 export type ClassifiedMoveRecord = {
@@ -474,6 +475,10 @@ export function useMoveClassification(options?: { enabled?: boolean }) {
     [analyzeAndCache, enqueue, runAnalysis, runMultiPvAnalysis],
   );
 
+  const restoreClassifiedMoves = useCallback((records: readonly ClassifiedMoveRecord[]) => {
+    classifiedMovesRef.current = records.map((record) => ({ ...record }));
+  }, []);
+
   const resetClassification = useCallback(() => {
     abortPendingAnalysis();
     classifiedMovesRef.current = [];
@@ -523,7 +528,10 @@ export function useMoveClassification(options?: { enabled?: boolean }) {
 
       const replayedMoves = movesThroughIndex(session);
       gameSanMovesRef.current = [...replayedMoves];
-      classifiedMovesRef.current = classifiedMovesRef.current.slice(0, replayedMoves.length);
+      classifiedMovesRef.current = alignClassifiedMovesToSans(
+        classifiedMovesRef.current,
+        session.moves,
+      );
       syncBookStateAfterUndo();
       setLatestClassification(null);
       positionAnalysisRef.current = null;
@@ -657,6 +665,7 @@ export function useMoveClassification(options?: { enabled?: boolean }) {
     onMovePlayed,
     syncAnalysisToSession,
     trimAnalysisToPlyCount,
+    restoreClassifiedMoves,
     resetClassification,
     classifiedMovesRef,
     latestClassification,

@@ -8,6 +8,7 @@ import {
   goBack,
   goForward,
   goToIndex,
+  isGameLineOver,
   movesThroughIndex,
   popLastMove,
   toFen,
@@ -83,6 +84,44 @@ describe('goForward', () => {
 
     const noOp = goForward(live);
     assert.equal(noOp, live);
+  });
+});
+
+describe('isGameLineOver', () => {
+  it('is false before the game has ended', () => {
+    assert.equal(isGameLineOver([]), false);
+    assert.equal(isGameLineOver(['e4', 'e5']), false);
+  });
+
+  it('stays true for checkmate even when the caller is looking at an earlier ply', () => {
+    const moves = ['f3', 'e5', 'g4', 'Qh4#'];
+    assert.equal(isGameLineOver(moves), true);
+    assert.equal(isGameLineOver(moves.slice(0, 2)), false);
+  });
+
+  it('is true for a drawn game', () => {
+    const moves = [
+      'e3',
+      'a5',
+      'Qh5',
+      'Ra6',
+      'Qxa5',
+      'h5',
+      'h4',
+      'Rah6',
+      'Qxc7',
+      'f6',
+      'Qxd7+',
+      'Kf7',
+      'Qxb7',
+      'Qd3',
+      'Qxb8',
+      'Qh7',
+      'Qxc8',
+      'Kg6',
+      'Qe6',
+    ];
+    assert.equal(isGameLineOver(moves), true);
   });
 });
 

@@ -1,4 +1,6 @@
+import type { ClassifiedMoveRecord } from '../hooks/useMoveClassification';
 import type { BoardOrientation } from './boardOrientation';
+import { alignClassifiedMovesToSans, parseClassifiedMoves } from './classifiedMoves';
 import type { GameSession } from './gameHistory';
 
 export type ActiveGameSnapshot = {
@@ -11,6 +13,8 @@ export type ActiveGameSnapshot = {
   savedAt: number;
   /** True after checkmate, draw, or resignation. Resume still works; bot games stay locked. */
   finished?: boolean;
+  /** Live move-quality records aligned to `session.moves`. */
+  classifiedMoves?: ClassifiedMoveRecord[];
 };
 
 function isGameSession(value: unknown): value is GameSession {
@@ -68,6 +72,11 @@ export function parseActiveGameSnapshot(raw: unknown): ActiveGameSnapshot | null
     return null;
   }
 
+  const classifiedMoves = alignClassifiedMovesToSans(
+    parseClassifiedMoves(snapshot.classifiedMoves),
+    snapshot.session.moves,
+  );
+
   return {
     mode: snapshot.mode,
     botId: snapshot.mode === 'bot' ? snapshot.botId : undefined,
@@ -77,6 +86,7 @@ export function parseActiveGameSnapshot(raw: unknown): ActiveGameSnapshot | null
     passAndPlayEnabled: snapshot.passAndPlayEnabled,
     savedAt: snapshot.savedAt,
     ...(snapshot.finished === true ? { finished: true } : {}),
+    ...(classifiedMoves.length > 0 ? { classifiedMoves } : {}),
   };
 }
 

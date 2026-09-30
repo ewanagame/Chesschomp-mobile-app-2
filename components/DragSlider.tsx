@@ -55,38 +55,43 @@ export default function DragSlider({
   const theme = useTheme();
   const trackWidthRef = useRef(0);
   const [trackWidth, setTrackWidth] = useState(0);
-  const valueRef = useRef(value);
-  valueRef.current = value;
+  const boundsRef = useRef({ min, max, step });
+  boundsRef.current = { min, max, step };
+  const onValueChangeRef = useRef(onValueChange);
+  onValueChangeRef.current = onValueChange;
+  const grantRatioRef = useRef(0);
 
-  const setValueFromX = useCallback(
-    (locationX: number) => {
-      const width = trackWidthRef.current;
-      if (width <= 0) {
-        return;
-      }
+  const publishRatio = useCallback((ratio: number) => {
+    const { min: boundMin, max: boundMax, step: boundStep } = boundsRef.current;
+    const clampedRatio = clamp(ratio, 0, 1);
+    const raw = boundMin + clampedRatio * (boundMax - boundMin);
+    onValueChangeRef.current(snapToStep(raw, boundMin, boundMax, boundStep));
+  }, []);
 
-      const usable = Math.max(1, width - THUMB_SIZE);
-      const clampedX = clamp(locationX - THUMB_SIZE / 2, 0, usable);
-      const ratio = clampedX / usable;
-      const raw = min + ratio * (max - min);
-      onValueChange(snapToStep(raw, min, max, step));
-    },
-    [max, min, onValueChange, step],
-  );
+  const ratioFromLocationX = useCallback((locationX: number) => {
+    const usable = Math.max(1, trackWidthRef.current - THUMB_SIZE);
+    const clampedX = clamp(locationX - THUMB_SIZE / 2, 0, usable);
+    return clampedX / usable;
+  }, []);
 
   const panResponder = useMemo(
     () =>
       PanResponder.create({
         onStartShouldSetPanResponder: () => true,
         onMoveShouldSetPanResponder: () => true,
+        onPanResponderTerminationRequest: () => false,
+        onShouldBlockNativeResponder: () => true,
         onPanResponderGrant: (event) => {
-          setValueFromX(event.nativeEvent.locationX);
+          const ratio = ratioFromLocationX(event.nativeEvent.locationX);
+          grantRatioRef.current = ratio;
+          publishRatio(ratio);
         },
-        onPanResponderMove: (event) => {
-          setValueFromX(event.nativeEvent.locationX);
+        onPanResponderMove: (_event, gesture) => {
+          const usable = Math.max(1, trackWidthRef.current - THUMB_SIZE);
+          publishRatio(grantRatioRef.current + gesture.dx / usable);
         },
       }),
-    [setValueFromX],
+    [publishRatio, ratioFromLocationX],
   );
 
   const handleLayout = useCallback((event: LayoutChangeEvent) => {

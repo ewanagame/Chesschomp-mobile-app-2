@@ -12,13 +12,14 @@ import {
 import {
   DEFAULT_APP_PREFERENCES,
   loadAppPreferences,
-  saveAppPreference,
+  saveAppPreferences,
   type AppPreferenceKey,
   type AppPreferences,
 } from '../lib/appPreferences';
 import { clampClassificationMovetimeMs } from '../lib/classificationMovetime';
 import { normalizePlayerName } from '../lib/playerName';
 import { normalizePlayerPieceType } from '../lib/playerPiece';
+import { clampHistoryNavSpeed } from '../lib/holdRepeat';
 import { clampReviewDepth, clampReviewPlaybackSpeed } from '../lib/reviewSettings';
 
 type AppPreferencesContextValue = {
@@ -28,6 +29,18 @@ type AppPreferencesContextValue = {
 };
 
 const AppPreferencesContext = createContext<AppPreferencesContextValue | null>(null);
+
+const SLIDER_PREFERENCE_KEYS = new Set<AppPreferenceKey>([
+  'classificationMovetimeMs',
+  'reviewDepth',
+  'reviewPlaybackSpeed',
+  'historyHoldSpeed',
+  'historyDoubleHoldSpeed',
+]);
+
+function isSliderPreference(key: AppPreferenceKey): boolean {
+  return SLIDER_PREFERENCE_KEYS.has(key);
+}
 
 export function AppPreferencesProvider({ children }: { children: ReactNode }) {
   const [preferences, setPreferences] = useState<AppPreferences>(DEFAULT_APP_PREFERENCES);
@@ -53,6 +66,35 @@ export function AppPreferencesProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const schedulePersist = useCallback((next: AppPreferences, key: AppPreferenceKey) => {
+    if (persistTimerRef.current) {
+      clearTimeout(persistTimerRef.current);
+      persistTimerRef.current = null;
+    }
+
+    if (!isSliderPreference(key)) {
+      void saveAppPreferences(next);
+      return;
+    }
+
+    persistTimerRef.current = setTimeout(() => {
+      persistTimerRef.current = null;
+      void saveAppPreferences(preferencesRef.current);
+    }, 180);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (persistTimerRef.current) {
+        clearTimeout(persistTimerRef.current);
+        persistTimerRef.current = null;
+        void saveAppPreferences(preferencesRef.current);
+      }
+    };
+  }, []);
+
   const setPreference = useCallback(<K extends AppPreferenceKey>(key: K, value: AppPreferences[K]) => {
     let normalizedValue = value;
     if (key === 'classificationMovetimeMs') {
@@ -61,19 +103,19 @@ export function AppPreferencesProvider({ children }: { children: ReactNode }) {
       normalizedValue = clampReviewDepth(value as number) as AppPreferences[K];
     } else if (key === 'reviewPlaybackSpeed') {
       normalizedValue = clampReviewPlaybackSpeed(value as number) as AppPreferences[K];
+    } else if (key === 'historyHoldSpeed' || key === 'historyDoubleHoldSpeed') {
+      normalizedValue = clampHistoryNavSpeed(value as number) as AppPreferences[K];
     } else if (key === 'playerName') {
       normalizedValue = normalizePlayerName(String(value)) as AppPreferences[K];
     } else if (key === 'playerPieceType') {
       normalizedValue = normalizePlayerPieceType(value) as AppPreferences[K];
     }
 
-    setPreferences((current) => {
-      const next = { ...current, [key]: normalizedValue };
-      preferencesRef.current = next;
-      return next;
-    });
-    void saveAppPreference(key, normalizedValue);
-  }, []);
+    const next = { ...preferencesRef.current, [key]: normalizedValue };
+    preferencesRef.current = next;
+    setPreferences(next);
+    schedulePersist(next, key);
+  }, [schedulePersist]);
 
   const value = useMemo(
     () => ({

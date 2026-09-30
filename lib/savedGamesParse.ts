@@ -1,4 +1,5 @@
 import type { ClassifiedMoveRecord } from '../hooks/useMoveClassification';
+import { normalizeClassifiedMove } from './classifiedMoves';
 import { normalizeSavedGameName } from './savedGameName';
 
 export type CachedReview = {
@@ -21,51 +22,6 @@ export type SavedGame = {
   savedAt: number;
   review?: CachedReview;
 };
-
-function finiteNumber(value: unknown, fallback = 0): number {
-  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
-}
-
-function normalizeClassifiedMove(value: unknown): ClassifiedMoveRecord | null {
-  if (!value || typeof value !== 'object') {
-    return null;
-  }
-
-  const record = value as Partial<ClassifiedMoveRecord>;
-  if (
-    typeof record.move !== 'string' ||
-    typeof record.san !== 'string' ||
-    (record.color !== 'w' && record.color !== 'b') ||
-    typeof record.classification !== 'string' ||
-    typeof record.wasBestMove !== 'boolean' ||
-    typeof record.fenBefore !== 'string' ||
-    typeof record.fenAfter !== 'string' ||
-    (record.bestMoveUci != null && typeof record.bestMoveUci !== 'string')
-  ) {
-    return null;
-  }
-
-  return {
-    ...record,
-    move: record.move,
-    san: record.san,
-    color: record.color,
-    classification: record.classification,
-    evalBefore: finiteNumber(record.evalBefore),
-    evalAfter: finiteNumber(record.evalAfter),
-    wasBestMove: record.wasBestMove,
-    fenBefore: record.fenBefore,
-    fenAfter: record.fenAfter,
-    bestMoveUci: record.bestMoveUci,
-    bestMoveEval:
-      record.bestMoveEval == null ? record.bestMoveEval : finiteNumber(record.bestMoveEval),
-    evalDelta: record.evalDelta == null ? record.evalDelta : finiteNumber(record.evalDelta),
-    mateInWhiteAfter:
-      record.mateInWhiteAfter == null
-        ? record.mateInWhiteAfter
-        : finiteNumber(record.mateInWhiteAfter),
-  };
-}
 
 /** Make a review safe to JSON.stringify. Non-finite evals become 0. */
 export function sanitizeCachedReview(review: CachedReview): CachedReview | null {

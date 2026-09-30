@@ -32,6 +32,8 @@ import MoveClassificationBadge, {
   CLASSIFICATION_BADGE_STYLES,
 } from './MoveClassificationBadge';
 import PromotionPicker, { PROMOTION_PICKER_SCALE } from './PromotionPicker';
+import { useHoldRepeat } from '../hooks/useHoldRepeat';
+import { historyNavIntervalMs } from '../lib/holdRepeat';
 import { useMoveClassification, type ClassifiedMoveRecord, type LatestMoveClassification } from '../hooks/useMoveClassification';
 import {
   useAppPreferences,
@@ -58,6 +60,7 @@ import {
   appendMove,
   createGameSession,
   goToIndex,
+  isGameLineOver,
   movesThroughIndex,
   toFen,
   toPgn,
@@ -65,6 +68,7 @@ import {
   type GameSession,
 } from '../lib/gameHistory';
 import type { ActiveGameSnapshot } from '../lib/activeGameSnapshot';
+import { alignClassifiedMovesToSans } from '../lib/classifiedMoves';
 import { buildGameOutcome, describeGameResult, type GameOutcome } from '../lib/gameResult';
 import {
   REPETITION_DRAW_WARNING_TEXT,
@@ -92,6 +96,7 @@ import {
   type LivePositionEval,
 } from '../lib/liveEval';
 import { getBotImageSource, type Bot } from '../lib/bots';
+import { HOME_MASCOT_SOURCE } from '../lib/preloadImages';
 import {
   boardOrientationForColor,
   passAndPlaySideLabel,
@@ -124,7 +129,7 @@ const HINT_DISPLAY_MS = 5000;
 const DRAG_MOVEMENT_THRESHOLD_PX = 2;
 /** Warn if Stockfish never reaches ready during a bot game (production-visible). */
 const BOT_ENGINE_READY_WARN_MS = 25_000;
-const PLAYER_PORTRAIT_SOURCE = require('../assets/splash.png');
+const PLAYER_PORTRAIT_SOURCE = HOME_MASCOT_SOURCE;
 
 function showSaveConfirmation(title: string, message: string) {
   Alert.alert(title, message);
@@ -486,6 +491,7 @@ const ChessBoard = forwardRef<ChessBoardHandle, ChessBoardProps>(function ChessB
   const dragTranslateX = useRef(new Animated.Value(0)).current;
   const dragTranslateY = useRef(new Animated.Value(0)).current;
   const moveSlideRef = useRef<MoveSlideAnimation | null>(null);
+  const animateCommittedMoveRef = useRef<(move: Move) => void>(() => undefined);
   const moveSlideEffectKeyRef = useRef(0);
   const illegalMoveShakeRef = useRef<IllegalMoveShake | null>(null);
   const illegalMoveShakeEffectKeyRef = useRef(0);
@@ -518,6 +524,7 @@ const ChessBoard = forwardRef<ChessBoardHandle, ChessBoardProps>(function ChessB
   onGameEndedRef.current = onGameEnded;
   const onActiveGameSnapshotChangeRef = useRef(onActiveGameSnapshotChange);
   onActiveGameSnapshotChangeRef.current = onActiveGameSnapshotChange;
+  const buildGameSnapshotFromSessionRef = useRef<() => ActiveGameSnapshot | null>(() => null);
   const initialSnapshotAppliedRef = useRef(false);
   const botTurnScheduledRef = useRef<string | null>(null);
   const botActionEpochRef = useRef(0);
@@ -546,6 +553,7 @@ const ChessBoard = forwardRef<ChessBoardHandle, ChessBoardProps>(function ChessB
     onMovePlayed,
     syncAnalysisToSession,
     trimAnalysisToPlyCount,
+    restoreClassifiedMoves,
     resetClassification,
     latestClassification,
     positionEval,
@@ -575,6 +583,9 @@ const ChessBoard = forwardRef<ChessBoardHandle, ChessBoardProps>(function ChessB
   const trackMoveClassification = useCallback(
     (move: Move, fenBefore: string) => {
       const pending = onMovePlayed(move, fenBefore);
+      void pending.then(() => {
+        onActiveGameSnapshotChangeRef.current?.(buildGameSnapshotFromSessionRef.current());
+      });
       if (isBotGame && move.color === playerColorRef.current) {
         playerMoveClassificationRef.current = pending;
       }
@@ -633,6 +644,9 @@ const ChessBoard = forwardRef<ChessBoardHandle, ChessBoardProps>(function ChessB
       : undefined;
   const viewedRecord =
     session.currentIndex >= 0 ? classifiedMovesRef.current[session.currentIndex] : undefined;
+  const viewedClassification = viewedRecord
+    ? classificationBadgeFromRecord(viewedRecord)
+    : null;
   const activeRecord = reviewMode ? reviewRecord : viewedRecord;
   const displayedClassification = reviewMode
     ? reviewPlaybackLocked
@@ -640,11 +654,7 @@ const ChessBoard = forwardRef<ChessBoardHandle, ChessBoardProps>(function ChessB
       : activeRecord
       ? classificationBadgeFromRecord(activeRecord)
       : null
-    : viewingHistory
-      ? viewedRecord
-        ? classificationBadgeFromRecord(viewedRecord)
-        : null
-      : latestClassification;
+    : viewedClassification ?? (!viewingHistory ? latestClassification : null);
   const syncedPositionEval =
     isAnalysisIdle &&
     !positionEval.isNeutral &&
@@ -668,7 +678,9 @@ const ChessBoard = forwardRef<ChessBoardHandle, ChessBoardProps>(function ChessB
   const board = game.board();
   const gameOver = game.isGameOver();
   const effectiveGameOver = gameOver || userEndedGame;
-  const piecesLocked = botPlayLocked || (effectiveGameOver && !isFreeBoard);
+  const lineIsOver = isGameLineOver(session.moves);
+  const playSealed = userEndedGame || lineIsOver;
+  const piecesLocked = botPlayLocked || playSealed || (effectiveGameOver && !isFreeBoard);
   const turn = game.turn();
   const moveHistory = game.history();
   const canResign = !viewingHistory && !effectiveGameOver && moveHistory.length > 0;
@@ -984,6 +996,11 @@ const ChessBoard = forwardRef<ChessBoardHandle, ChessBoardProps>(function ChessB
       return null;
     }
 
+    const classifiedMoves = alignClassifiedMovesToSans(
+      classifiedMovesRef.current,
+      session.moves,
+    );
+
     return {
       mode: isBotGame ? 'bot' : 'free',
       botId: bot?.id,
@@ -997,8 +1014,12 @@ const ChessBoard = forwardRef<ChessBoardHandle, ChessBoardProps>(function ChessB
       passAndPlayEnabled,
       savedAt: Date.now(),
       finished: effectiveGameOver,
+      ...(classifiedMoves.length > 0
+        ? { classifiedMoves: classifiedMoves.map((record) => ({ ...record })) }
+        : {}),
     };
   }, [boardOrientation, bot?.id, effectiveGameOver, isBotGame, passAndPlayEnabled, playerColor]);
+  buildGameSnapshotFromSessionRef.current = buildGameSnapshotFromSession;
 
   const buildActiveGameSnapshot = useCallback((): ActiveGameSnapshot | null => {
     return buildGameSnapshotFromSession();
@@ -1073,6 +1094,7 @@ const ChessBoard = forwardRef<ChessBoardHandle, ChessBoardProps>(function ChessB
     clearMoveQualitySpinAnimation();
     setCheckmateOverlay(null);
     setScrollUnlocked(false);
+    restoreClassifiedMoves(snapshot.classifiedMoves ?? []);
     syncAnalysisToSession(gameSessionRef.current);
     panRespondersRef.current = {};
     refreshBoard();
@@ -1082,6 +1104,7 @@ const ChessBoard = forwardRef<ChessBoardHandle, ChessBoardProps>(function ChessB
     clearHint,
     clearMoveQualitySpinAnimation,
     refreshBoard,
+    restoreClassifiedMoves,
     syncAnalysisToSession,
   ]);
 
@@ -1231,6 +1254,15 @@ const ChessBoard = forwardRef<ChessBoardHandle, ChessBoardProps>(function ChessB
     }
     navigateToIndex(gameSessionRef.current.currentIndex + 1);
   }, [navigateToIndex, reviewCurrentIndex, reviewMode, reviewPlaybackLocked, stopReviewAutoplay]);
+
+  const holdBack = useHoldRepeat(navigateBack, canGoBack, {
+    singleIntervalMs: historyNavIntervalMs(preferences.historyHoldSpeed),
+    doubleIntervalMs: historyNavIntervalMs(preferences.historyDoubleHoldSpeed),
+  });
+  const holdForward = useHoldRepeat(navigateForward, canGoForward, {
+    singleIntervalMs: historyNavIntervalMs(preferences.historyHoldSpeed),
+    doubleIntervalMs: historyNavIntervalMs(preferences.historyDoubleHoldSpeed),
+  });
 
   const jumpToPly = useCallback(
     (plyIndex: number) => {
@@ -1756,6 +1788,7 @@ const ChessBoard = forwardRef<ChessBoardHandle, ChessBoardProps>(function ChessB
 
           notifyMoveSound(result);
           recordSessionMove(result);
+          animateCommittedMoveRef.current(result);
           refreshBoard();
           onMovePlayed(result, fenAtSearchStart);
           maybeStartCheckmateAnimation(result);
@@ -1915,7 +1948,7 @@ const ChessBoard = forwardRef<ChessBoardHandle, ChessBoardProps>(function ChessB
 
   const completePromotion = useCallback(
     (promotion: PieceSymbol) => {
-      if (!pendingPromotion) {
+      if (!pendingPromotion || playSealed) {
         return;
       }
 
@@ -1943,11 +1976,15 @@ const ChessBoard = forwardRef<ChessBoardHandle, ChessBoardProps>(function ChessB
         notifyActiveGameSnapshotChange();
       }
     },
-    [clearDragSession, clearHint, clearSelection, game, maybeStartCheckmateAnimation, notifyActiveGameSnapshotChange, notifyMoveSound, pendingPromotion, recordSessionMove, refreshBoard, trackMoveClassification],
+    [clearDragSession, clearHint, clearSelection, game, maybeStartCheckmateAnimation, notifyActiveGameSnapshotChange, notifyMoveSound, pendingPromotion, playSealed, recordSessionMove, refreshBoard, trackMoveClassification],
   );
 
   const tryMove = useCallback(
     (from: Square, to: Square, options?: { keepSlideOverlay?: boolean }) => {
+      if (playSealed) {
+        return false;
+      }
+
       const moves = game.moves({ square: from, verbose: true });
       const move = moves.find((candidate) => candidate.to === to);
 
@@ -1986,7 +2023,7 @@ const ChessBoard = forwardRef<ChessBoardHandle, ChessBoardProps>(function ChessB
       }
       return Boolean(result);
     },
-    [clearDragSession, clearDragVisual, clearHint, clearSelection, game, maybeStartCheckmateAnimation, notifyActiveGameSnapshotChange, notifyMoveSound, recordSessionMove, refreshBoard, trackMoveClassification],
+    [clearDragSession, clearDragVisual, clearHint, clearSelection, game, maybeStartCheckmateAnimation, notifyActiveGameSnapshotChange, notifyMoveSound, playSealed, recordSessionMove, refreshBoard, trackMoveClassification],
   );
 
   const startMoveSlide = useCallback(
@@ -2016,6 +2053,18 @@ const ChessBoard = forwardRef<ChessBoardHandle, ChessBoardProps>(function ChessB
     },
     [],
   );
+
+  animateCommittedMoveRef.current = (move: Move) => {
+    startMoveSlide(
+      move.from,
+      move.to,
+      { color: move.color, type: move.piece },
+      { x: 0, y: 0 },
+      'commit',
+      Boolean(move.captured),
+      false,
+    );
+  };
 
   const beginAnimatedMove = useCallback(
     (
@@ -3100,7 +3149,9 @@ const ChessBoard = forwardRef<ChessBoardHandle, ChessBoardProps>(function ChessB
                     !canGoBack && chromeStyles.actionButtonDisabled,
                     pressed && canGoBack && chromeStyles.actionButtonPressed,
                   ]}
-                  onPress={navigateBack}
+                  onPress={holdBack.onPress}
+                  onPressIn={holdBack.onPressIn}
+                  onPressOut={holdBack.onPressOut}
                   disabled={!canGoBack}
                   accessibilityRole="button"
                   accessibilityLabel="Previous move"
@@ -3123,7 +3174,9 @@ const ChessBoard = forwardRef<ChessBoardHandle, ChessBoardProps>(function ChessB
                     !canGoForward && chromeStyles.actionButtonDisabled,
                     pressed && canGoForward && chromeStyles.actionButtonPressed,
                   ]}
-                  onPress={navigateForward}
+                  onPress={holdForward.onPress}
+                  onPressIn={holdForward.onPressIn}
+                  onPressOut={holdForward.onPressOut}
                   disabled={!canGoForward}
                   accessibilityRole="button"
                   accessibilityLabel="Next move"

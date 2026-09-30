@@ -22,8 +22,9 @@ function validSnapshot() {
 
 describe('parseActiveGameSnapshot', () => {
   it('accepts a valid bot-game snapshot', () => {
-    const parsed = parseActiveGameSnapshot(validSnapshot());
-    assert.deepEqual(parsed, validSnapshot());
+    const snapshot = validSnapshot();
+    const parsed = parseActiveGameSnapshot(snapshot);
+    assert.deepEqual(parsed, snapshot);
   });
 
   it('accepts a valid free-board snapshot without botId', () => {
@@ -65,5 +66,47 @@ describe('parseActiveGameSnapshot', () => {
   it('rejects malformed payloads', () => {
     assert.equal(parseActiveGameSnapshot(null), null);
     assert.equal(parseActiveGameSnapshot({ mode: 'free' }), null);
+  });
+
+  it('keeps recorded move types that match the saved line', () => {
+    const snapshot = {
+      ...validSnapshot(),
+      classifiedMoves: [
+        {
+          move: 'e2e4',
+          san: 'e4',
+          color: 'w' as const,
+          classification: 'Best' as const,
+          evalBefore: 20,
+          evalAfter: 30,
+          wasBestMove: true,
+          fenBefore: 'start',
+          fenAfter: AFTER_E4,
+        },
+      ],
+    };
+    const parsed = parseActiveGameSnapshot(snapshot);
+    assert.equal(parsed?.classifiedMoves?.[0]?.classification, 'Best');
+  });
+
+  it('drops move types that no longer match the saved line', () => {
+    const snapshot = {
+      ...validSnapshot(),
+      classifiedMoves: [
+        {
+          move: 'd2d4',
+          san: 'd4',
+          color: 'w' as const,
+          classification: 'Good' as const,
+          evalBefore: 10,
+          evalAfter: 12,
+          wasBestMove: false,
+          fenBefore: 'start',
+          fenAfter: AFTER_E4,
+        },
+      ],
+    };
+    const parsed = parseActiveGameSnapshot(snapshot);
+    assert.equal(parsed?.classifiedMoves, undefined);
   });
 });

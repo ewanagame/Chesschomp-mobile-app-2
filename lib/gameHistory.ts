@@ -54,6 +54,22 @@ export function goForward(session: GameSession): GameSession {
   return goToIndex(session, session.currentIndex + 1) ?? session;
 }
 
+/** True when the full move list has ended in checkmate or any draw, even if viewing an earlier ply. */
+export function isGameLineOver(moves: readonly string[]): boolean {
+  if (moves.length === 0) {
+    return false;
+  }
+
+  const chess = new Chess();
+  for (const san of moves) {
+    if (!chess.move(san)) {
+      return false;
+    }
+  }
+
+  return chess.isGameOver();
+}
+
 /** SAN moves replayed through the current index (empty at the starting position). */
 export function movesThroughIndex(session: GameSession): readonly string[] {
   if (session.currentIndex < 0) {

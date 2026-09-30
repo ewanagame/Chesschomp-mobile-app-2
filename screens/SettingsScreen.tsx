@@ -10,11 +10,18 @@ import {
   type LayoutChangeEvent,
 } from 'react-native';
 
+import DragSlider from '../components/DragSlider';
 import ScreenBackButton, { SCREEN_BACK_BUTTON_HEIGHT } from '../components/ScreenBackButton';
 import WarmRadialBackground from '../components/WarmRadialBackground';
 import { Card, SectionHeader } from '../components/ui';
 import { useAppPreferences } from '../contexts/AppPreferencesContext';
 import { useTheme } from '../contexts/ThemeContext';
+import {
+  formatHistoryNavSpeedLabel,
+  HISTORY_NAV_SPEED_MAX,
+  HISTORY_NAV_SPEED_MIN,
+  HISTORY_NAV_SPEED_STEP,
+} from '../lib/holdRepeat';
 import type { RootStackParamList } from '../navigation/types';
 import { spacing, typography } from '../theme';
 import type { AppTheme } from '../theme';
@@ -54,9 +61,46 @@ function AppearanceToggle({
   );
 }
 
+function HistorySpeedSlider({
+  label,
+  description,
+  value,
+  onValueChange,
+  styles,
+}: {
+  label: string;
+  description: string;
+  value: number;
+  onValueChange: (next: number) => void;
+  styles: ReturnType<typeof createSettingsStyles>;
+}) {
+  return (
+    <View style={styles.sliderBlock}>
+      <View style={styles.sliderHeader}>
+        <Text style={styles.toggleLabel}>{label}</Text>
+        <Text style={styles.sliderValue}>{formatHistoryNavSpeedLabel(value)}</Text>
+      </View>
+      <Text style={styles.toggleDescription}>{description}</Text>
+      <DragSlider
+        value={value}
+        min={HISTORY_NAV_SPEED_MIN}
+        max={HISTORY_NAV_SPEED_MAX}
+        step={HISTORY_NAV_SPEED_STEP}
+        onValueChange={onValueChange}
+        accessibilityLabel={label}
+      />
+      <View style={styles.sliderEnds}>
+        <Text style={styles.sliderEndLabel}>{formatHistoryNavSpeedLabel(HISTORY_NAV_SPEED_MIN)}</Text>
+        <Text style={styles.sliderEndLabel}>{formatHistoryNavSpeedLabel(HISTORY_NAV_SPEED_MAX)}</Text>
+      </View>
+    </View>
+  );
+}
+
 export default function SettingsScreen({ navigation, route }: SettingsScreenProps) {
   const theme = useTheme();
   const styles = useMemo(() => createSettingsStyles(theme), [theme]);
+  const { preferences, setPreference } = useAppPreferences();
   const scrollRef = useRef<ScrollView>(null);
   const shouldScrollToSavingGames = route.params?.scrollTo === 'savingGames';
 
@@ -90,6 +134,24 @@ export default function SettingsScreen({ navigation, route }: SettingsScreenProp
           <Card style={styles.sectionCard}>
             <SectionHeader title="Appearance" />
             <AppearanceToggle styles={styles} theme={theme} />
+          </Card>
+
+          <Card style={[styles.sectionCard, styles.sectionCardSpaced]}>
+            <SectionHeader title="Move buttons" />
+            <HistorySpeedSlider
+              label="Hold speed"
+              description="Hold < or > to step through moves at this speed, forward or back."
+              value={preferences.historyHoldSpeed}
+              onValueChange={(next) => setPreference('historyHoldSpeed', next)}
+              styles={styles}
+            />
+            <HistorySpeedSlider
+              label="Double-tap hold speed"
+              description="Double-tap and keep holding < or > to step through moves at this faster speed."
+              value={preferences.historyDoubleHoldSpeed}
+              onValueChange={(next) => setPreference('historyDoubleHoldSpeed', next)}
+              styles={styles}
+            />
           </Card>
 
           <Card style={[styles.sectionCard, styles.sectionCardSpaced]} onLayout={handleSavingGamesLayout}>
@@ -168,6 +230,31 @@ function createSettingsStyles(theme: AppTheme) {
       color: theme.textFaint,
       fontSize: 13,
       lineHeight: 18,
+    },
+    sliderBlock: {
+      gap: spacing.xs,
+    },
+    sliderHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: spacing.md,
+    },
+    sliderValue: {
+      color: theme.textPrimary,
+      fontSize: 16,
+      fontWeight: '700',
+      fontVariant: ['tabular-nums'],
+    },
+    sliderEnds: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginTop: -spacing.sm,
+    },
+    sliderEndLabel: {
+      color: theme.textFaint,
+      fontSize: 12,
+      fontWeight: '600',
     },
   });
 }
